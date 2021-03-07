@@ -22,7 +22,7 @@ module.exports.listenForData = function listenForData(endpoint) {
       const output = {
         sensorData: tempData
       };
-      const dateTime = new Date((new Date()).getTime() + (3600000 * 3));
+      const dateTime = new Date((new Date()).getTime());
       output.dateTime = dateTime.toLocaleString();
       output.timeStamp = dateTime.getTime();
 
