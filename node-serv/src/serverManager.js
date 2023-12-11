@@ -28,8 +28,8 @@ module.exports.logTemperature = function logTemperature(tempData) {
     debug(`Missing temp log file ${currentTempLogFilePath}`);
   }
 
-  if (tempData.serverName !== undefined) {
-    currentTempData[tempData.serverName] = tempData;
+  if (tempData.server !== undefined) {
+    currentTempData[tempData.server] = tempData;
   } else {
     debug(chalk.red(`Missing server name for ${JSON.stringify(tempData)}`));
   }
