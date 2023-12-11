@@ -15,6 +15,7 @@ module.exports.logTemperature = function logTemperature(tempData) {
   const currentTempLogFilePath = path.join(temperatureLogBasePath, 'currentTemp');
   let currentTempData = {};
   if (fs.existsSync(currentTempLogFilePath)) {
+    debug('Current temp file exists...');
     currentTempData = JSON.parse(fs.readFileSync(currentTempLogFilePath));
     if (currentTempData.sensorData !== undefined) {
       debug(chalk.yellow('Obsolete data format!'));
@@ -23,6 +24,8 @@ module.exports.logTemperature = function logTemperature(tempData) {
       };
       currentTempData = newTempData;
     }
+  } else {
+    debug(`Missing temp log file ${currentTempLogFilePath}`);
   }
 
   if (tempData.serverName !== undefined) {
@@ -31,7 +34,7 @@ module.exports.logTemperature = function logTemperature(tempData) {
     debug(chalk.red(`Missing server name for ${JSON.stringify(tempData)}`));
   }
 
-  fs.writeFileSync(currentTempLogFilePath, JSON.stringify(tempData));
+  fs.writeFileSync(currentTempLogFilePath, JSON.stringify(currentTempData));
 
   const temperatureLogFilePath = path.join(temperatureLogBasePath, temperatureLogName);
   let logContents = [];
