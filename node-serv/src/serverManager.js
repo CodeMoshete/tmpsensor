@@ -1,5 +1,5 @@
 const chalk = require('chalk');
-const debug = require('debug')('ohhell-server');
+const debug = require('debug')('node-serv');
 const path = require('path');
 const fs = require('fs');
 
