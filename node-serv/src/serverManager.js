@@ -1,3 +1,4 @@
+const chalk = require('chalk');
 const debug = require('debug')('ohhell-server');
 const path = require('path');
 const fs = require('fs');
@@ -12,6 +13,24 @@ module.exports.logTemperature = function logTemperature(tempData) {
   }
 
   const currentTempLogFilePath = path.join(temperatureLogBasePath, 'currentTemp');
+  let currentTempData = {};
+  if (fs.existsSync(currentTempLogFilePath)) {
+    currentTempData = JSON.parse(fs.readFileSync(currentTempLogFilePath));
+    if (currentTempData.sensorData !== undefined) {
+      debug(chalk.yellow('Obsolete data format!'));
+      const newTempData = {
+        boulder: currentTempData
+      };
+      currentTempData = newTempData;
+    }
+  }
+
+  if (tempData.serverName !== undefined) {
+    currentTempData[tempData.serverName] = tempData;
+  } else {
+    debug(chalk.red(`Missing server name for ${JSON.stringify(tempData)}`));
+  }
+
   fs.writeFileSync(currentTempLogFilePath, JSON.stringify(tempData));
 
   const temperatureLogFilePath = path.join(temperatureLogBasePath, temperatureLogName);

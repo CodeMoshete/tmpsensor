@@ -9,7 +9,8 @@ const receiver = require('./src/receiver.js');
 
 if (process.argv[2] === 'send') {
   const endpoint = process.argv[3] !== undefined ? process.argv[3] : 'remote';
-  sender.listenForData(endpoint);
+  const serverName = process.argv[4] !== undefined ? process.argv[4] : 'boulder';
+  sender.listenForData(endpoint, serverName);
 } else if (process.argv[2] === 'receive') {
   global.appRoot = path.resolve(__dirname);
   const app = express();

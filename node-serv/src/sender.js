@@ -10,7 +10,7 @@ const endpoints = {
   remote: 'http://18.191.101.1:8088/temperatures'
 };
 
-module.exports.listenForData = function listenForData(endpoint) {
+module.exports.listenForData = function listenForData(endpoint, serverName) {
   const baseEndpoint = endpoints[endpoint];
   const sp = new SerialPort(portName);
   const ReadLine = serialport.parsers.Readline;
@@ -20,6 +20,7 @@ module.exports.listenForData = function listenForData(endpoint) {
     try {
       const tempData = JSON.parse(input);
       const output = {
+        server: serverName,
         sensorData: tempData
       };
       const dateTime = new Date((new Date()).getTime());
