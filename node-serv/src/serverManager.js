@@ -2,6 +2,7 @@ const chalk = require('chalk');
 const debug = require('debug')('node-serv');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
 
 function sendAlert(alertMsg) {
   axios.post('https://ntfy.sh/HomeAlerts-fortbouldermoshers', alertMsg);
