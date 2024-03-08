@@ -3,19 +3,8 @@ const debug = require('debug')('node-serv');
 const path = require('path');
 const fs = require('fs');
 
-const accountSid = '';
-const authToken = '';
-const client = require('twilio')(accountSid, authToken);
-
 function sendAlert(alertMsg) {
-  client.messages
-    .create({
-        body: alertMsg,
-        from: '',
-        to: ''
-    })
-    .then(message => console.log(message.sid))
-    .done();
+  axios.post('https://ntfy.sh/HomeAlerts-fortbouldermoshers', alertMsg);
 }
 
 module.exports.logTemperature = function logTemperature(tempData) {

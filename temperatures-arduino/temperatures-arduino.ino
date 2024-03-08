@@ -8,9 +8,11 @@
 #include <math.h>
 int a;
 float temperature;
+float moisture;
 int B=3975;                  //B value of the thermistor
 float resistance;
-char *portNames[] = {"\"sensor1\":", "\"sensor2\":"};
+char *portNames[] = {"\"sensor1\":", "\"sensor2\":", "\"sensor3\":"};
+char *moisturePortName = "\"m\":";
 int numPortNames;
  
 void setup()
@@ -38,6 +40,13 @@ void loop()
       buf += ",";
     }
   }
+
+  a=analogRead(3);
+  buf += ",{";
+  buf += moisturePortName;
+  buf += String(a, 6);
+  buf += "}";
+  
   buf += "]";
   Serial.println(buf);
   delay(60000);

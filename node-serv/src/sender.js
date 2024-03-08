@@ -32,6 +32,7 @@ module.exports.listenForData = function listenForData(endpoint, serverName) {
 
       const url = `${baseEndpoint}/log`;
       axios.post(url, output);
+      
     } catch (e) {
       debug(chalk.yellow(`Temperature update error: ${e}`));
     }

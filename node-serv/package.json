@@ -9,13 +9,15 @@
     "chalk": "^4.1.0",
     "cors": "^2.8.5",
     "debug": "^4.3.1",
+    "express": "^4.17.1",
+    "serialport": "^9.0.6",
+    "twilio": "^4.23.0"
+  },
+  "devDependencies": {
     "eslint": "^7.20.0",
     "eslint-config-airbnb-base": "^14.2.1",
-    "eslint-plugin-import": "^2.22.1",
-    "express": "^4.17.1",
-    "serialport": "^9.0.6"
+    "eslint-plugin-import": "^2.22.1"
   },
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "set DEBUG=*node-serv* && powershell npx nodemon index.js"
