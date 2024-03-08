@@ -48,7 +48,7 @@ module.exports.logTemperature = function logTemperature(tempData) {
   if (sensorDatas !== undefined) {
     for (let i = 0, count = sensorDatas.length; i < count; i += 1) {
       const sensorName = Object.keys(tempData.sensorData[i])[0];
-      const sensorValue = tempData.sensorData[sensorName];
+      const sensorValue = tempData.sensorData[i][sensorName];
       if (sensorName.startsWith('sensor') && sensorValue < 38.0) {
         // Send alert.
         const alertMsg = `ALERT: Temperature sensor ${sensorName} at location ${tempData.server} reading ${sensorValue}!`;
