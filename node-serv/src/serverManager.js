@@ -43,6 +43,23 @@ module.exports.logTemperature = function logTemperature(tempData) {
   }
   logContents.push(tempData);
 
+  // Check for any alerts.
+  const sensorNames = Object.keys(tempData.sensorData);
+  if (sensorNames !== undefined) {
+    for (let i = 0, count = sensorNames.length; i < count; i += 1) {
+      const sensorValue = tempData.sensorData[sensorNames[i]];
+      if (sensorNames[i].startsWith('sensor') && sensorValue < 38.0) {
+        // Send alert.
+        const alertMsg = `ALERT: Temperature sensor ${sensorNames[i]} at location ${tempData.server} reading ${sensorValue}!`;
+        debug(chalk.red(alertMsg));
+      } else if (sensorNames[i].startsWith('m') && sensorValue < 1300) {
+        // Send moisture alert.
+        const alertMsg = `ALERT: Moisture sensor ${sensorNames[i]} at location ${tempData.server} reading ${sensorValue}!`;
+        debug(chalk.red(alertMsg));
+      }
+    }
+  }
+
   debug(`SET GAME STATE: ${temperatureLogFilePath}`);
   fs.writeFileSync(temperatureLogFilePath, JSON.stringify(logContents));
 };
