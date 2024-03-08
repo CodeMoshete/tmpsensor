@@ -44,17 +44,18 @@ module.exports.logTemperature = function logTemperature(tempData) {
   logContents.push(tempData);
 
   // Check for any alerts.
-  const sensorNames = Object.keys(tempData.sensorData);
-  if (sensorNames !== undefined) {
-    for (let i = 0, count = sensorNames.length; i < count; i += 1) {
-      const sensorValue = tempData.sensorData[sensorNames[i]];
-      if (sensorNames[i].startsWith('sensor') && sensorValue < 38.0) {
+  const sensorDatas = tempData.sensorData;
+  if (sensorDatas !== undefined) {
+    for (let i = 0, count = sensorDatas.length; i < count; i += 1) {
+      const sensorName = Object.keys(tempData.sensorData[i])[0];
+      const sensorValue = tempData.sensorData[sensorName];
+      if (sensorName.startsWith('sensor') && sensorValue < 38.0) {
         // Send alert.
-        const alertMsg = `ALERT: Temperature sensor ${sensorNames[i]} at location ${tempData.server} reading ${sensorValue}!`;
+        const alertMsg = `ALERT: Temperature sensor ${sensorName} at location ${tempData.server} reading ${sensorValue}!`;
         debug(chalk.red(alertMsg));
-      } else if (sensorNames[i].startsWith('m') && sensorValue < 1300) {
+      } else if (sensorName.startsWith('m') && sensorValue < 1300) {
         // Send moisture alert.
-        const alertMsg = `ALERT: Moisture sensor ${sensorNames[i]} at location ${tempData.server} reading ${sensorValue}!`;
+        const alertMsg = `ALERT: Moisture sensor ${sensorName} at location ${tempData.server} reading ${sensorValue}!`;
         debug(chalk.red(alertMsg));
       }
     }
