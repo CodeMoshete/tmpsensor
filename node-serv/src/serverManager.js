@@ -3,6 +3,21 @@ const debug = require('debug')('node-serv');
 const path = require('path');
 const fs = require('fs');
 
+const accountSid = '';
+const authToken = '';
+const client = require('twilio')(accountSid, authToken);
+
+function sendAlert(alertMsg) {
+  client.messages
+    .create({
+        body: alertMsg,
+        from: '',
+        to: ''
+    })
+    .then(message => console.log(message.sid))
+    .done();
+}
+
 module.exports.logTemperature = function logTemperature(tempData) {
   const dateSuffix = tempData.dateTime.split(',')[0].split('/').join('-');
   const temperatureLogName = `log-${dateSuffix}`;
@@ -53,10 +68,12 @@ module.exports.logTemperature = function logTemperature(tempData) {
         // Send alert.
         const alertMsg = `ALERT: Temperature sensor ${sensorName} at location ${tempData.server} reading ${sensorValue}!`;
         debug(chalk.red(alertMsg));
-      } else if (sensorName.startsWith('m') && sensorValue < 1300) {
+        sendAlert(alertMsg);
+      } else if (sensorName.startsWith('m') && sensorValue < 1500) {
         // Send moisture alert.
         const alertMsg = `ALERT: Moisture sensor ${sensorName} at location ${tempData.server} reading ${sensorValue}!`;
         debug(chalk.red(alertMsg));
+        sendAlert(alertMsg);
       }
     }
   }
