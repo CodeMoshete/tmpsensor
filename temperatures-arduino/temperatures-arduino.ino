@@ -11,7 +11,11 @@ float temperature;
 float moisture;
 int B=3975;                  //B value of the thermistor
 float resistance;
+<<<<<<< Updated upstream
 char *portNames[] = {"\"sensor1\":", "\"sensor2\":", "\"sensor3\":"};
+=======
+char *portNames[] = {"\"sensor1\":", "\"sensor2\":"};
+>>>>>>> Stashed changes
 char *moisturePortName = "\"m\":";
 int numPortNames;
  
@@ -41,12 +45,20 @@ void loop()
     }
   }
 
+<<<<<<< Updated upstream
   a=analogRead(3);
+=======
+  a=analogRead(numPortNames);
+>>>>>>> Stashed changes
   buf += ",{";
   buf += moisturePortName;
   buf += String(a, 6);
   buf += "}";
+<<<<<<< Updated upstream
   
+=======
+
+>>>>>>> Stashed changes
   buf += "]";
   Serial.println(buf);
   delay(60000);
