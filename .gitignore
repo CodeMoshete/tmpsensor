@@ -6,6 +6,16 @@
 node_modules/
 temperature-logs/
 
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+functions/.env
+functions/.env.*
+!functions/.env.example
+functions/.secret.local
+
 # Visual Studio 2015 cache directory
 .vs/
 
