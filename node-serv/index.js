@@ -22,4 +22,6 @@ if (process.argv[2] === 'send') {
   app.listen(listenPort, () => {
     debug(`Listening on port ${chalk.green(listenPort)}`);
   });
+} else if (process.argv[2] === 'test') {
+  sender.testSend('remote', 'test');
 }

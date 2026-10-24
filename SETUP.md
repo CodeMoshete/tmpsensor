@@ -135,6 +135,41 @@ Consider making a phone Shortcut / Home Screen button that fires the
 `pauseAlerts` curl for you — that was the point of making it a callable
 endpoint instead of automatic.
 
+## 9b. Offline alerts
+
+A scheduled function (`offlineCheck`) runs every minute and sends an ntfy alert
+when a house in `MONITORED_SERVERS` (`functions/src/serverManager.js`) hasn't
+checked in for more than 5 minutes, repeats it hourly while the house stays
+silent, and sends a "reporting again" message when it comes back. It respects
+`pauseAlerts` like the temperature alerts do; anything suppressed during a
+pause goes out as soon as the pause ends. Add or remove house names in
+`MONITORED_SERVERS` when houses change.
+
+The first `firebase deploy --only functions` after adding it may ask to enable
+the Cloud Scheduler API -- say yes. Cloud Scheduler includes 3 free jobs per
+billing account; this uses one.
+
+## 10. Long-range history (hourly/daily averages)
+
+Every reading is also folded into running hourly and daily averages
+(`rollupsHourly`, `rollupsDaily`), which back `/getHistory?range=7d|30d|90d|180d|365d`
+and the dashboard's 1 week – 1 year views. Unlike raw logs, these have no
+`expireAt`, so they outlive the 30-day TTL.
+
+After deploying this for the first time (`firebase deploy --only functions`),
+backfill the averages from the raw logs already stored. This only needs doing
+once; re-running is harmless (already-counted readings are skipped):
+
+```bash
+gcloud auth application-default login     # if you haven't already
+cd functions
+GCLOUD_PROJECT=<your-project-id> node scripts/backfillRollups.js
+```
+
+It reads every stored log once and marks each one as counted — roughly 200K
+reads and 200K writes for the history as of October 2026, i.e. well under $1,
+one time.
+
 ## Cost expectations
 
 On Blaze, you're billed pay-as-you-go, but the free tier underneath likely
@@ -143,9 +178,15 @@ covers this entirely at your traffic volume:
 - Cloud Functions: 2M invocations/month free
 - Firestore: 50K reads, 20K writes, 20K deletes per day free
 
-A sensor posting every few minutes plus occasional dashboard reads is nowhere
-close to those limits. Worth setting a [budget alert](https://console.cloud.google.com/billing/budgets)
-in GCP for peace of mind, but expect $0/month.
+The offline check adds ~5.8K reads/day (4 per run) and a handful of writes.
+Two sensors posting once a minute come to ~11.5K writes/day (each reading
+writes its log, the latest-reading doc, and two rollup buckets). Reads are
+mostly the dashboard: opening it reads ~4K raw logs for the 24h charts, and up
+to ~1.3K rollups for the 1-month view; left open, it repeats that hourly. Checking
+it a few times a day stays inside the free tier. A tab left open around the clock
+on the 24h view runs ~100K reads/day, about $0.03/day over the free tier. Worth
+setting a [budget alert](https://console.cloud.google.com/billing/budgets) in GCP
+for peace of mind, but expect $0 to a dollar or so a month.
 
 ## Local testing (optional)
 

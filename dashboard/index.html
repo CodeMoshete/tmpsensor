@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home Climate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: status bar, then one band per house — reading tiles on top, 24-hour trace below. */
+:root {
+  --bg: #f3f5f7;
+  --panel: #ffffff;
+  --fg: #16202a;
+  --muted: #5d6b78;
+  --line: #dde3e9;
+  --grid: #edf0f3;
+  --accent: #1d5fd1;
+  --ok: #1b7f4b;
+  --warn: #b26a00;
+  --bad: #c62f2f;
+  --ok-bg: #e4f4ea;
+  --warn-bg: #fdf0da;
+  --bad-bg: #fbe4e2;
+  --s1: #1d5fd1;
+  --s2: #d06a1a;
+  --s3: #138a7a;
+  --s4: #8a4fc4;
+  --moist: #2f7d9b;
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1419; --panel: #172029; --fg: #e5ebf0; --muted: #93a2b0;
+    --line: #26323d; --grid: #1e2832; --accent: #6ea1ff;
+    --ok: #5cc98d; --warn: #f0b24a; --bad: #ff7b72;
+    --ok-bg: #173327; --warn-bg: #3a2b12; --bad-bg: #3d1c1c;
+    --s1: #6ea1ff; --s2: #f29b55; --s3: #4cc7b4; --s4: #b98cf0; --moist: #62b6d6;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1419; --panel: #172029; --fg: #e5ebf0; --muted: #93a2b0;
+  --line: #26323d; --grid: #1e2832; --accent: #6ea1ff;
+  --ok: #5cc98d; --warn: #f0b24a; --bad: #ff7b72;
+  --ok-bg: #173327; --warn-bg: #3a2b12; --bad-bg: #3d1c1c;
+  --s1: #6ea1ff; --s2: #f29b55; --s3: #4cc7b4; --s4: #b98cf0; --moist: #62b6d6;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 15px/1.45 var(--font-body);
+  padding: 24px 16px 48px;
+}
+.wrap { max-width: 1180px; margin-inline: auto; display: grid; gap: 28px; }
+.houses { display: grid; gap: 36px; min-width: 0; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+.top h1 {
+  margin: 0; font: 600 2.4rem/1 var(--font-display); letter-spacing: .01em; text-wrap: balance;
+}
+.top .sub { margin: 6px 0 0; color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: .88rem; color: var(--muted); }
+.meta button {
+  font: 500 .85rem var(--font-body); color: var(--fg); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer;
+}
+.meta button:hover { border-color: var(--accent); }
+.meta button:focus-visible, .chart:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; border-radius: 999px;
+  padding: 3px 10px; font: 600 .78rem var(--font-body); letter-spacing: .04em; text-transform: uppercase;
+}
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--ok); background: var(--ok-bg); }
+.pill.warn { color: var(--warn); background: var(--warn-bg); }
+.pill.bad { color: var(--bad); background: var(--bad-bg); }
+
+.range { display: inline-flex; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.range button {
+  font: 500 .85rem var(--font-body); color: var(--muted); background: transparent; border: 0;
+  border-radius: 999px; padding: 5px 12px; cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.range button:hover { color: var(--fg); }
+.range button[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
+.range button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.toolbar .hint { color: var(--muted); font-size: .85rem; }
+
+.banner {
+  border: 1px solid var(--bad); background: var(--bad-bg); color: var(--fg);
+  border-radius: var(--radius); padding: 12px 16px;
+}
+
+/* House band */
+.house { display: grid; gap: 14px; }
+.house-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.house-head h2 { margin: 0; font: 600 1.7rem/1.1 var(--font-display); text-transform: capitalize; letter-spacing: .02em; }
+.house-head .seen { color: var(--muted); font-size: .9rem; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; }
+.tile {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 16px; display: grid; gap: 6px; align-content: start; min-width: 0;
+}
+.tile-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tile-name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: .92rem; min-width: 0; }
+.tile-name span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.reading { font: 500 2.6rem/1 var(--font-display); font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.reading small { font-size: 1.2rem; color: var(--muted); margin-left: 2px; }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 400 .78rem var(--font-data); color: var(--muted); font-variant-numeric: tabular-nums; }
+.facts b { font-weight: 500; color: var(--fg); }
+.up { color: var(--s2); } .down { color: var(--s1); }
+
+.meter { height: 6px; border-radius: 3px; background: var(--grid); position: relative; overflow: hidden; }
+.meter i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--moist); }
+.meter em { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--bad); }
+
+.chart-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 16px 10px; display: grid; gap: 8px; min-width: 0;
+}
+.chart-card h3 { margin: 0; font: 600 1rem var(--font-body); }
+.chart-card .note { margin: 0; color: var(--muted); font-size: .84rem; }
+.charts { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 820px) { .charts { grid-template-columns: minmax(0, 1fr); } }
+.chart { position: relative; min-height: 220px; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart svg text { fill: var(--muted); font: 400 11px var(--font-data); }
+.chart .empty { color: var(--muted); font-size: .88rem; padding: 40px 0; text-align: center; }
+
+.tip {
+  position: absolute; pointer-events: none; z-index: 2;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .14); padding: 6px 10px; font-size: .8rem; white-space: nowrap;
+}
+.tip .when { color: var(--muted); margin-bottom: 2px; }
+.tip .row { display: flex; align-items: center; gap: 6px; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+
+footer { color: var(--muted); font-size: .8rem; }
+footer code { font-family: var(--font-data); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tile, .chart-card { transition: border-color .3s; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Home Climate</h1>
+      <p class="sub" id="summary">Loading the latest readings…</p>
+    </div>
+    <div class="meta">
+      <span id="alertPill" class="pill ok" hidden>Alerts on</span>
+      <span id="updated">—</span>
+      <button type="button" id="refresh">Refresh now</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="range" role="group" aria-label="Chart time range" id="range">
+      <button type="button" data-range="1h">1h</button>
+      <button type="button" data-range="24h">24h</button>
+      <button type="button" data-range="7d">1 week</button>
+      <button type="button" data-range="30d">1 month</button>
+      <button type="button" data-range="90d">3 months</button>
+      <button type="button" data-range="180d">6 months</button>
+      <button type="button" data-range="365d">1 year</button>
+    </div>
+    <span class="hint" id="rangeHint"></span>
+  </div>
+
+  <div id="error" class="banner" hidden></div>
+  <main id="houses" class="houses"></main>
+
+  <footer>
+    Readings refresh every minute; the full history behind each chart reloads hourly. The 1h and 24h charts show every reading; 1 week and 1 month show hourly averages,
+    3 months and longer show daily averages, with the shaded band spanning each period's low to high.
+    Freeze alert fires below <span id="tempThr"></span>°F, moisture alert below <span id="moistThr"></span>.
+    Source: <code id="srcUrl"></code>
+  </footer>
+</div>
+
+<script>
+(() => {
+  // ---- Settings -----------------------------------------------------------
+  const API = 'https://temperatures-tjsqnvwopa-uc.a.run.app';
+  // Must match functions/src/serverManager.js
+  const TEMP_ALERT_F = 38.0;
+  const MOISTURE_ALERT = 1500;
+  const TEMP_WARN_MARGIN = 7;        // amber when within this many °F of the alert line
+  const STALE_MINUTES = 5;           // a house with no reading for this long shows as offline (matches the server's ntfy alert)
+  const HOUSE_TZ = 'America/New_York';
+  // Optional friendly names, e.g. { boulder: { sensor1: 'Basement', m: 'Sump' } }
+  const LABELS = {};
+
+  const HOUR = 3600e3;
+  const DAY = 24 * HOUR;
+  // Chart ranges. 1h and 24h draw raw readings; the rest draw server-side averages from /getHistory.
+  const RANGES = {
+    '1h': { days: 1 / 24, text: 'last hour', raw: true },
+    '24h': { days: 1, text: 'last 24 hours', raw: true },
+    '7d': { days: 7, text: 'last 7 days' },
+    '30d': { days: 30, text: 'last 30 days' },
+    '90d': { days: 90, text: 'last 3 months' },
+    '180d': { days: 180, text: 'last 6 months' },
+    '365d': { days: 365, text: 'last 12 months' }
+  };
+  const BUCKET_MS = { raw: 60e3, hour: HOUR, day: DAY };
+
+  // Each full 24h reload reads ~4,000 raw logs from Firestore, so it runs hourly; in between, the
+  // once-a-minute /getCurrent poll appends new readings. Averaged ranges change slowly, so hourly too.
+  const CURRENT_EVERY = 60 * 1000;
+  const RECENT_EVERY = 60 * 60 * 1000;
+  const TREND_EVERY = 60 * 60 * 1000;
+
+  // ---- Helpers ------------------------------------------------------------
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const isMoisture = (k) => k.startsWith('m');
+  const sensorColor = (k) => isMoisture(k) ? 'var(--moist)' : `var(--s${Math.min(4, parseInt(k.replace(/\D/g, ''), 10) || 1)})`;
+  const label = (house, k) => (LABELS[house] && LABELS[house][k]) || (isMoisture(k) ? 'Moisture' : 'Sensor ' + (k.replace(/\D/g, '') || k));
+  const fmtT = (v) => v.toFixed(1);
+  const fmtM = (v) => Math.round(v).toLocaleString('en-US');
+  const timeFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+  const hourFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric' });
+  const dayFmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+  const monthFmt = new Intl.DateTimeFormat(undefined, { month: 'short' });
+  const monthYearFmt = new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' });
+  const fullDayFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const stampFmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const hourStampFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric' });
+
+  function ago(ms) {
+    const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (s < 60) return `${s}s ago`;
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m} min ago`;
+    const h = Math.round(m / 60);
+    return h < 48 ? `${h} hr ago` : `${Math.round(h / 24)} days ago`;
+  }
+
+  // {sensor1: 60.1, m: 4423} from [{sensor1: 60.1}, {m: 4423}] (or an already-flat object).
+  function flatten(sensorData) {
+    const out = {};
+    const entries = Array.isArray(sensorData) ? sensorData : (sensorData && typeof sensorData === 'object' ? [sensorData] : []);
+    entries.forEach((o) => Object.entries(o || {}).forEach(([k, v]) => { if (Number.isFinite(Number(v))) out[k] = Number(v); }));
+    return out;
+  }
+
+  function easternDay(date) {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: HOUSE_TZ, year: 'numeric', month: 'numeric', day: 'numeric' })
+      .formatToParts(date).map((x) => [x.type, x.value]));
+    return { month: p.month, day: p.day, year: p.year };
+  }
+
+  function tempState(v) {
+    if (v < TEMP_ALERT_F) return 'bad';
+    if (v < TEMP_ALERT_F + TEMP_WARN_MARGIN) return 'warn';
+    return 'ok';
+  }
+
+  async function getJSON(path) {
+    const r = await fetch(API + path, { cache: 'no-store' });
+    if (!r.ok) {
+      const err = new Error(`${path} returned ${r.status}`);
+      err.status = r.status;
+      throw err;
+    }
+    return r.json();
+  }
+
+  function store(key, value) {
+    try {
+      if (value === undefined) return localStorage.getItem(key);
+      localStorage.setItem(key, value);
+    } catch (e) { /* storage unavailable: the page works without it */ }
+    return null;
+  }
+
+  // ---- State --------------------------------------------------------------
+  let current = {};       // house -> latest record
+  let recent = {};        // house -> [{t, v: {k: value}}], raw readings from the last 24h
+  let recentLoaded = false;
+  let alertStatus = null;
+  let lastFetch = 0;
+  // Averaged history for the selected range: house -> [{t, v: {k: avg}, lo: {k}, hi: {k}}]
+  const trends = {};      // range -> { at, bucket, byHouse } | { at, error }
+  let range = RANGES[location.hash.slice(1)] ? location.hash.slice(1) : (RANGES[store('range')] ? store('range') : '24h');
+
+  async function loadCurrent() {
+    const [cur, al] = await Promise.all([getJSON('/getCurrent'), getJSON('/alertStatus').catch(() => null)]);
+    current = cur;
+    alertStatus = al;
+    lastFetch = Date.now();
+    // Fold the newest reading into the 24h data so charts stay current between loads.
+    const since = Date.now() - DAY;
+    Object.values(cur).forEach((rec) => {
+      const arr = recent[rec.server];
+      if (!arr) return;
+      if (!arr.length || arr[arr.length - 1].t < rec.timeStamp) arr.push({ t: rec.timeStamp, v: flatten(rec.sensorData) });
+      while (arr.length && arr[0].t < since) arr.shift();
+    });
+  }
+
+  async function loadRecent() {
+    const now = new Date();
+    const days = [easternDay(new Date(now.getTime() - DAY)), easternDay(now)];
+    const uniq = days.filter((d, i) => i === 0 || JSON.stringify(d) !== JSON.stringify(days[0]));
+    const results = await Promise.all(uniq.map((d) => getJSON(`/getForDate?month=${d.month}&day=${d.day}&year=${d.year}`)));
+    const since = Date.now() - DAY;
+    const next = {};
+    results.flat().forEach((rec) => {
+      if (rec.timeStamp < since) return;
+      (next[rec.server] = next[rec.server] || []).push({ t: rec.timeStamp, v: flatten(rec.sensorData) });
+    });
+    Object.values(next).forEach((arr) => arr.sort((a, b) => a.t - b.t));
+    recent = next;
+    recentLoaded = true;
+  }
+
+  async function loadTrend(key) {
+    try {
+      const res = await getJSON(`/getHistory?range=${key}`);
+      const byHouse = {};
+      res.points.forEach((p) => {
+        const pt = { t: p.t, v: {}, lo: {}, hi: {} };
+        Object.entries(p.s).forEach(([k, [avg, lo, hi]]) => { pt.v[k] = avg; pt.lo[k] = lo; pt.hi[k] = hi; });
+        (byHouse[p.server] = byHouse[p.server] || []).push(pt);
+      });
+      Object.values(byHouse).forEach((arr) => arr.sort((a, b) => a.t - b.t));
+      trends[key] = { at: Date.now(), bucket: res.bucket, byHouse };
+    } catch (e) {
+      trends[key] = {
+        at: Date.now(),
+        error: e.status === 404
+          ? 'Longer ranges need the updated server, which isn’t deployed yet.'
+          : `Couldn’t load this range (${e.message}).`
+      };
+    }
+  }
+
+  // What the charts draw for the selected range: { bucket, byHouse } or { error } or null while loading.
+  function chartData() {
+    if (RANGES[range].raw) return recentLoaded ? { bucket: 'raw', byHouse: recent } : null;
+    return trends[range] || null;
+  }
+
+  // ---- Rendering ----------------------------------------------------------
+  function render() {
+    const houses = Object.keys(current).sort();
+    const root = $('#houses');
+    const problems = [];
+    const r = RANGES[range];
+    const data = chartData();
+    const avgNote = data && data.bucket === 'hour' ? 'Hourly averages; the band shows each hour’s low to high. '
+      : data && data.bucket === 'day' ? 'Daily averages; the band shows each day’s low to high. ' : '';
+
+    root.innerHTML = houses.map((h) => {
+      const rec = current[h];
+      const vals = flatten(rec.sensorData);
+      const stale = Date.now() - rec.timeStamp > STALE_MINUTES * 60e3;
+      const hist = recent[h] || [];
+      const keys = Object.keys(vals).sort((a, b) => isMoisture(a) - isMoisture(b) || a.localeCompare(b, undefined, { numeric: true }));
+
+      let worst = 'ok';
+      const tiles = keys.map((k) => {
+        const v = vals[k];
+        const series = hist.map((p) => p.v[k]).filter((x) => Number.isFinite(x));
+        const lo = series.length ? Math.min(...series) : v;
+        const hi = series.length ? Math.max(...series) : v;
+        const hourAgo = hist.find((p) => p.t >= rec.timeStamp - HOUR && Number.isFinite(p.v[k]));
+        const delta = hourAgo ? v - hourAgo.v[k] : null;
+
+        if (isMoisture(k)) {
+          const st = v < MOISTURE_ALERT ? 'bad' : 'ok';
+          if (st === 'bad') { worst = 'bad'; problems.push(`${h} moisture is ${fmtM(v)}`); }
+          const scale = Math.max(hi, MOISTURE_ALERT * 2, 1) * 1.05;
+          return `<article class="tile">
+            <div class="tile-top"><div class="tile-name"><span class="swatch" style="background:${sensorColor(k)}"></span><span>${esc(label(h, k))}</span></div>
+              <span class="pill ${st}">${st === 'bad' ? 'Alert' : 'Normal'}</span></div>
+            <div class="reading">${fmtM(v)}</div>
+            <div class="meter" title="Alert threshold ${MOISTURE_ALERT}"><i style="width:${Math.min(100, v / scale * 100)}%"></i><em style="left:${MOISTURE_ALERT / scale * 100}%"></em></div>
+            <div class="facts"><span>24h low <b>${fmtM(lo)}</b></span><span>high <b>${fmtM(hi)}</b></span><span>alert &lt; ${fmtM(MOISTURE_ALERT)}</span></div>
+          </article>`;
+        }
+
+        const st = tempState(v);
+        if (st === 'bad') { worst = 'bad'; problems.push(`${h} ${label(h, k).toLowerCase()} is ${fmtT(v)}°F`); }
+        else if (st === 'warn' && worst === 'ok') worst = 'warn';
+        const dTxt = delta === null ? '' : `<span class="${delta >= 0 ? 'up' : 'down'}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta).toFixed(1)}° / 1h</span>`;
+        return `<article class="tile">
+          <div class="tile-top"><div class="tile-name"><span class="swatch" style="background:${sensorColor(k)}"></span><span>${esc(label(h, k))}</span></div>
+            <span class="pill ${st}">${{ ok: 'Normal', warn: 'Cold', bad: 'Freeze risk' }[st]}</span></div>
+          <div class="reading">${fmtT(v)}<small>°F</small></div>
+          <div class="facts"><span>24h <b>${fmtT(lo)}</b>–<b>${fmtT(hi)}</b></span>${dTxt}</div>
+        </article>`;
+      }).join('');
+
+      if (stale) problems.push(`${h} hasn't reported since ${stampFmt.format(rec.timeStamp)}`);
+      const status = stale ? '<span class="pill warn">Offline</span>' : `<span class="pill ${worst}">${{ ok: 'All normal', warn: 'Running cold', bad: 'Needs attention' }[worst]}</span>`;
+      const hasMoist = keys.some(isMoisture);
+
+      return `<section class="house" aria-labelledby="h-${esc(h)}">
+        <div class="house-head"><h2 id="h-${esc(h)}">${esc(h)}</h2>${status}<span class="seen">Last reading ${timeFmt.format(rec.timeStamp)} · ${ago(rec.timeStamp)}</span></div>
+        <div class="tiles">${tiles}</div>
+        <div class="charts">
+          <div class="chart-card"><h3>Temperature, ${r.text}</h3><p class="note">${avgNote}Dashed line marks the ${TEMP_ALERT_F}°F freeze alert.</p>
+            <div class="chart" tabindex="0" data-house="${esc(h)}" data-kind="temp"></div></div>
+          ${hasMoist ? `<div class="chart-card"><h3>Moisture, ${r.text}</h3><p class="note">${avgNote}Alert fires below ${fmtM(MOISTURE_ALERT)}.</p>
+            <div class="chart" tabindex="0" data-house="${esc(h)}" data-kind="moist"></div></div>` : ''}
+        </div>
+      </section>`;
+    }).join('');
+
+    root.querySelectorAll('.chart').forEach((el) => { drawChart(el); el._w = el.clientWidth; sizer.observe(el); });
+
+    $('#summary').textContent = !houses.length ? 'No houses have reported yet.'
+      : problems.length ? problems.map((p) => p[0].toUpperCase() + p.slice(1)).join('. ') + '.'
+      : `All ${houses.length} homes are reporting and within normal range.`;
+
+    const pill = $('#alertPill');
+    if (alertStatus) {
+      pill.hidden = false;
+      pill.className = 'pill ' + (alertStatus.paused ? 'warn' : 'ok');
+      pill.textContent = alertStatus.paused ? `Alerts paused until ${stampFmt.format(new Date(alertStatus.pausedUntil))}` : 'Alerts on';
+    } else pill.hidden = true;
+
+    // Say where history begins when the range reaches further back than the data.
+    let hint = '';
+    if (data && data.byHouse) {
+      const firsts = Object.values(data.byHouse).filter((a) => a.length).map((a) => a[0].t);
+      const first = firsts.length ? Math.min(...firsts) : null;
+      if (first && first - (Date.now() - r.days * DAY) > 2 * BUCKET_MS[data.bucket] + DAY * (data.bucket === 'day' ? 1 : 0)) {
+        hint = `History starts ${fullDayFmt.format(first)}.`;
+      }
+    }
+    $('#rangeHint').textContent = hint;
+    document.querySelectorAll('#range button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.range === range)));
+    tick();
+  }
+
+  function tick() { if (lastFetch) $('#updated').textContent = `Updated ${ago(lastFetch)}`; }
+
+  // Calendar-aligned x-axis ticks: picks the finest step that gives at most `target` ticks.
+  function timeTicks(t0, t1, target) {
+    const steps = [
+      { unit: 'min', n: 5, approx: 5 * 60e3 }, { unit: 'min', n: 10, approx: 10 * 60e3 },
+      { unit: 'min', n: 15, approx: 15 * 60e3 }, { unit: 'min', n: 30, approx: 30 * 60e3 },
+      { unit: 'h', n: 1, approx: HOUR }, { unit: 'h', n: 3, approx: 3 * HOUR }, { unit: 'h', n: 6, approx: 6 * HOUR },
+      { unit: 'h', n: 12, approx: 12 * HOUR }, { unit: 'd', n: 1, approx: DAY }, { unit: 'd', n: 2, approx: 2 * DAY },
+      { unit: 'w', n: 7, approx: 7 * DAY }, { unit: 'w', n: 14, approx: 14 * DAY }, { unit: 'm', n: 1, approx: 30 * DAY },
+      { unit: 'm', n: 2, approx: 61 * DAY }, { unit: 'm', n: 3, approx: 91 * DAY }
+    ];
+    const step = steps.find((s) => (t1 - t0) / s.approx <= target) || steps[steps.length - 1];
+    const out = [];
+    const d = new Date(t0);
+    if (step.unit === 'min') d.setSeconds(0, 0);
+    else if (step.unit === 'h') d.setMinutes(0, 0, 0);
+    else d.setHours(0, 0, 0, 0);
+    if (step.unit === 'm') d.setDate(1);
+    for (let guard = 0; guard < 2000 && d.getTime() <= t1; guard += 1) {
+      const t = d.getTime();
+      let keep = false;
+      let text = '';
+      if (step.unit === 'min') {
+        keep = d.getMinutes() % step.n === 0;
+        text = timeFmt.format(d);
+        d.setMinutes(d.getMinutes() + 1);
+      } else if (step.unit === 'h') {
+        keep = d.getHours() % step.n === 0;
+        text = d.getHours() === 0 ? dayFmt.format(d) : hourFmt.format(d);
+        d.setHours(d.getHours() + 1);
+      } else if (step.unit === 'd') {
+        keep = (d.getDate() - 1) % step.n === 0;
+        text = dayFmt.format(d);
+        d.setDate(d.getDate() + 1);
+      } else if (step.unit === 'w') {
+        keep = step.n === 7 ? [1, 8, 15, 22].includes(d.getDate()) : [1, 15].includes(d.getDate());
+        text = d.getDate() === 1 ? monthFmt.format(d) : dayFmt.format(d);
+        d.setDate(d.getDate() + 1);
+      } else {
+        keep = d.getMonth() % step.n === 0;
+        text = d.getMonth() === 0 ? monthYearFmt.format(d) : monthFmt.format(d);
+        d.setMonth(d.getMonth() + 1);
+      }
+      if (keep && t >= t0) out.push({ t, text });
+    }
+    return out;
+  }
+
+  function drawChart(el) {
+    const house = el.dataset.house;
+    const moist = el.dataset.kind === 'moist';
+    const data = chartData();
+    if (!data) { el.innerHTML = '<div class="empty">Loading history…</div>'; return; }
+    if (data.error) { el.innerHTML = `<div class="empty">${esc(data.error)}</div>`; return; }
+
+    const bucketMs = BUCKET_MS[data.bucket];
+    const banded = data.bucket !== 'raw';
+    const gapMs = banded ? bucketMs * 1.5 + HOUR : 10 * 60e3;   // break lines across missing buckets
+    const offset = banded ? bucketMs / 2 : 0;                    // plot averages mid-bucket
+    const t1 = Date.now(), t0 = t1 - RANGES[range].days * DAY;
+    const pts = (data.byHouse[house] || []).filter((p) => p.t + offset >= t0);
+    const keys = [...new Set(pts.flatMap((p) => Object.keys(p.v)))]
+      .filter((k) => isMoisture(k) === moist)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const series = keys.map((k) => ({
+      k, name: label(house, k), color: sensorColor(k),
+      pts: pts.filter((p) => Number.isFinite(p.v[k])).map((p) => ({
+        t: p.t + offset, v: p.v[k], lo: banded ? p.lo[k] : p.v[k], hi: banded ? p.hi[k] : p.v[k]
+      }))
+    })).filter((s) => s.pts.length);
+
+    if (!series.length) { el.innerHTML = '<div class="empty">No readings in this period.</div>'; return; }
+
+    const W = Math.max(260, el.clientWidth), H = 220;
+    const fmt = moist ? fmtM : fmtT;
+    const unit = moist ? '' : '°';
+    const thr = moist ? MOISTURE_ALERT : TEMP_ALERT_F;
+
+    // y-domain covers the data (bands included) and the alert line, padded to nice steps
+    const all = series.flatMap((s) => s.pts.flatMap((p) => [p.lo, p.hi])).concat(thr);
+    let lo = Math.min(...all), hi = Math.max(...all);
+    const pad = (hi - lo) * 0.08 || (moist ? 100 : 2);
+    lo -= pad; hi += pad;
+    const step = niceStep((hi - lo) / 4);
+    lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+
+    const yTicks = []; for (let v = lo; v <= hi + step / 2; v += step) yTicks.push(v);
+
+    // measure the widest labels so margins fit them
+    const meas = document.createElement('canvas').getContext('2d');
+    meas.font = '11px "JetBrains Mono", monospace';
+    const ml = Math.ceil(Math.max(...yTicks.map((v) => meas.measureText(fmtAxis(v, moist) + unit).width))) + 10;
+    const endLabels = series.map((s) => `${s.name} ${fmt(s.pts[s.pts.length - 1].v)}${unit}`);
+    const showEnd = W > 420;
+    const mr = showEnd ? Math.ceil(Math.max(...endLabels.map((t) => meas.measureText(t).width))) + 14 : 8;
+    const mt = 10, mb = 24;
+    const x = (t) => ml + (t - t0) / (t1 - t0) * (W - ml - mr);
+    const y = (v) => mt + (hi - v) / (hi - lo) * (H - mt - mb);
+
+    let svg = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(house)} ${moist ? 'moisture' : 'temperature'}, ${RANGES[range].text}">`;
+    yTicks.forEach((v) => {
+      svg += `<line x1="${ml}" x2="${W - mr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/>`;
+      svg += `<text x="${ml - 8}" y="${y(v) + 4}" text-anchor="end">${fmtAxis(v, moist)}${unit}</text>`;
+    });
+    // x ticks: ~1 per 85px, dropping any label that would collide with the previous one
+    let lastRight = -Infinity;
+    timeTicks(t0, t1, Math.max(3, Math.floor((W - ml - mr) / 85))).forEach(({ t, text }) => {
+      const tx = x(t), half = meas.measureText(text).width / 2;
+      if (tx - half < lastRight + 8 || tx + half > W - mr + 4) return;
+      lastRight = tx + half;
+      svg += `<line x1="${tx}" x2="${tx}" y1="${H - mb}" y2="${H - mb + 4}" stroke="var(--line)"/>`;
+      svg += `<text x="${tx}" y="${H - 6}" text-anchor="middle">${esc(text)}</text>`;
+    });
+    svg += `<line x1="${ml}" x2="${W - mr}" y1="${H - mb}" y2="${H - mb}" stroke="var(--line)"/>`;
+    svg += `<line x1="${ml}" x2="${W - mr}" y1="${y(thr)}" y2="${y(thr)}" stroke="var(--bad)" stroke-width="1.25" stroke-dasharray="5 4"/>`;
+    svg += `<text x="${ml + 6}" y="${y(thr) - 5}" style="fill:var(--bad)">alert ${fmt(thr)}${unit}</text>`;
+
+    series.forEach((s, i) => {
+      const segs = segments(s.pts, gapMs);
+      if (banded) {
+        // low–high band per segment
+        segs.forEach((seg) => {
+          const top = seg.map((p, j) => (j ? 'L' : 'M') + x(p.t).toFixed(1) + ',' + y(p.hi).toFixed(1)).join('');
+          const bot = seg.slice().reverse().map((p) => 'L' + x(p.t).toFixed(1) + ',' + y(p.lo).toFixed(1)).join('');
+          svg += `<path d="${top}${bot}Z" fill="${s.color}" fill-opacity="${series.length > 1 ? 0.12 : 0.18}" stroke="none"/>`;
+        });
+      } else if (moist && series.length === 1) {
+        const gid = `g-${house}-${i}`;
+        svg += `<defs><linearGradient id="${esc(gid)}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:${s.color};stop-opacity:.22"/><stop offset="1" style="stop-color:${s.color};stop-opacity:0"/></linearGradient></defs>`;
+        segs.forEach((seg) => {
+          svg += `<path d="${linePath(seg, x, y)} L${x(seg[seg.length - 1].t)},${H - mb} L${x(seg[0].t)},${H - mb} Z" fill="url(#${esc(gid)})"/>`;
+        });
+      }
+      segs.forEach((seg) => {
+        svg += seg.length > 1
+          ? `<path d="${linePath(seg, x, y)}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`
+          : `<circle cx="${x(seg[0].t)}" cy="${y(seg[0].v)}" r="2" fill="${s.color}"/>`;
+      });
+    });
+
+    // end dots + labels, nudged apart so they don't collide
+    const ends = series.map((s, i) => { const p = s.pts[s.pts.length - 1]; return { s, p, ly: y(p.v), text: endLabels[i] }; })
+      .sort((a, b) => a.ly - b.ly);
+    for (let i = 1; i < ends.length; i++) if (ends[i].ly - ends[i - 1].ly < 14) ends[i].ly = ends[i - 1].ly + 14;
+    ends.forEach((e) => {
+      svg += `<circle cx="${x(e.p.t)}" cy="${y(e.p.v)}" r="3.5" fill="${e.s.color}" stroke="var(--panel)" stroke-width="1.5"/>`;
+      if (showEnd) svg += `<text x="${W - mr + 8}" y="${e.ly + 4}" style="fill:${e.s.color}">${esc(e.text)}</text>`;
+    });
+
+    svg += `<line class="rule" y1="${mt}" y2="${H - mb}" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>`;
+    series.forEach((s) => { svg += `<circle class="hov" r="4" fill="${s.color}" stroke="var(--panel)" stroke-width="1.5" visibility="hidden"/>`; });
+    svg += `<rect x="${ml}" y="${mt}" width="${W - ml - mr}" height="${H - mt - mb}" fill="transparent"/></svg><div class="tip" hidden></div>`;
+    el.innerHTML = svg;
+
+    // hover / touch tooltip
+    const rule = el.querySelector('.rule'), dots = el.querySelectorAll('.hov'), tip = el.querySelector('.tip');
+    const whenText = (t) => data.bucket === 'day' ? fullDayFmt.format(t - offset)
+      : data.bucket === 'hour' ? hourStampFmt.format(t - offset) : stampFmt.format(t);
+    const move = (clientX) => {
+      const r = el.querySelector('svg').getBoundingClientRect();
+      const px = (clientX - r.left) * (W / r.width);
+      const t = t0 + (px - ml) / (W - ml - mr) * (t1 - t0);
+      if (px < ml || px > W - mr) return hide();
+      let html = '', when = null;
+      series.forEach((s, i) => {
+        const p = nearest(s.pts, t);
+        const ok = p && Math.abs(p.t - t) < Math.max(gapMs / 2, (t1 - t0) / (W - ml - mr) * 6);
+        dots[i].setAttribute('visibility', ok ? 'visible' : 'hidden');
+        if (!ok) return;
+        when = when || p.t;
+        dots[i].setAttribute('cx', x(p.t)); dots[i].setAttribute('cy', y(p.v));
+        const spread = banded ? ` <span style="color:var(--muted)">${fmt(p.lo)}–${fmt(p.hi)}</span>` : '';
+        html += `<div class="row"><span class="swatch" style="background:${s.color}"></span>${esc(s.name)} <b>${fmt(p.v)}${unit}</b>${spread}</div>`;
+      });
+      if (when === null) return hide();
+      rule.setAttribute('x1', x(when)); rule.setAttribute('x2', x(when)); rule.setAttribute('visibility', 'visible');
+      tip.innerHTML = `<div class="when">${whenText(when)}${banded ? ' · avg, low–high' : ''}</div>` + html;
+      tip.hidden = false;
+      const left = x(when) * (r.width / W);
+      const tw = tip.offsetWidth;
+      tip.style.left = Math.min(Math.max(0, left + 12 + tw > r.width ? left - tw - 12 : left + 12), r.width - tw) + 'px';
+      tip.style.top = '8px';
+    };
+    const hide = () => { tip.hidden = true; rule.setAttribute('visibility', 'hidden'); dots.forEach((d) => d.setAttribute('visibility', 'hidden')); };
+    el.onpointermove = (e) => move(e.clientX);
+    el.onpointerdown = (e) => move(e.clientX);
+    el.onpointerleave = hide;
+  }
+
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / p;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
+  }
+  function fmtAxis(v, moist) { return moist ? fmtM(v) : (Number.isInteger(v) ? String(v) : v.toFixed(1)); }
+
+  // Splits points into runs with no gap longer than gapMs.
+  function segments(pts, gapMs) {
+    const segs = [[]];
+    pts.forEach((p, i) => {
+      if (i && p.t - pts[i - 1].t > gapMs) segs.push([]);
+      segs[segs.length - 1].push(p);
+    });
+    return segs.filter((s) => s.length);
+  }
+  function linePath(pts, x, y) {
+    return pts.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(1) + ',' + y(p.v).toFixed(1)).join('');
+  }
+  function nearest(pts, t) {
+    let a = 0, b = pts.length - 1;
+    if (b < 0) return null;
+    while (b - a > 1) { const m = (a + b) >> 1; if (pts[m].t < t) a = m; else b = m; }
+    return Math.abs(pts[a].t - t) <= Math.abs(pts[b].t - t) ? pts[a] : pts[b];
+  }
+
+  // ---- Loop ---------------------------------------------------------------
+  function showError(e) {
+    const err = $('#error');
+    err.hidden = !e;
+    if (e) err.textContent = `Couldn't reach the sensor service (${e.message}). Showing the last readings received; retrying automatically.`;
+  }
+
+  async function refresh({ withRecent = false, withTrend = false } = {}) {
+    try {
+      const jobs = [loadCurrent()];
+      if (withRecent) jobs.push(loadRecent());
+      if (withTrend && !RANGES[range].raw) jobs.push(loadTrend(range));
+      await Promise.all(jobs);
+      showError(null);
+    } catch (e) {
+      showError(e);
+    }
+    render();
+  }
+
+  async function selectRange(key) {
+    range = key;
+    store('range', key);
+    history.replaceState(null, '', '#' + key);
+    const cached = trends[key];
+    render();
+    if (!RANGES[key].raw && (!cached || cached.error || Date.now() - cached.at > TREND_EVERY)) {
+      if (cached && cached.error) delete trends[key];
+      render();
+      await loadTrend(key);
+      if (range === key) render();
+    }
+  }
+
+  // Redraw a chart whenever its own box changes width (layout settling, font load, window resize).
+  const sizer = new ResizeObserver((entries) => entries.forEach(({ target }) => {
+    if (Math.abs(target.clientWidth - (target._w || 0)) < 8) return;
+    target._w = target.clientWidth;
+    drawChart(target);
+  }));
+
+  $('#tempThr').textContent = TEMP_ALERT_F;
+  $('#moistThr').textContent = fmtM(MOISTURE_ALERT);
+  $('#srcUrl').textContent = API;
+  $('#refresh').addEventListener('click', () => refresh({ withRecent: true, withTrend: true }));
+  document.querySelectorAll('#range button').forEach((b) => b.addEventListener('click', () => selectRange(b.dataset.range)));
+
+  refresh({ withRecent: true, withTrend: true });
+  setInterval(() => refresh(), CURRENT_EVERY);
+  setInterval(() => loadRecent().then(render).catch(() => {}), RECENT_EVERY);
+  setInterval(() => { if (!RANGES[range].raw) loadTrend(range).then(render); }, TREND_EVERY);
+  setInterval(tick, 10 * 1000);
+})();
+</script>
+</body>
+</html>

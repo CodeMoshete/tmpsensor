@@ -1,6 +1,7 @@
 const express = require('express');
 const logger = require('firebase-functions/logger');
 const serverManager = require('./serverManager');
+const rollups = require('./rollups');
 const { requireApiKey } = require('./auth');
 
 const router = express.Router();
@@ -30,6 +31,23 @@ router.route('/getForDate')
       res.send(temperatureData);
     } else {
       res.sendStatus(404);
+    }
+  });
+
+// https://<function-url>/getHistory?range=30d
+// range is one of 7d, 30d (hourly averages) or 90d, 180d, 365d (daily averages).
+router.route('/getHistory')
+  .get(async (req, res) => {
+    try {
+      const history = await rollups.getHistory(req.query.range);
+      if (!history) {
+        res.status(400).send(`range must be one of: ${Object.keys(rollups.RANGES).join(', ')}`);
+        return;
+      }
+      res.send(history);
+    } catch (e) {
+      logger.error(`Error reading history: ${e}`);
+      res.sendStatus(500);
     }
   });
 

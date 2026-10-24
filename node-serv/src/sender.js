@@ -18,6 +18,25 @@ const endpoints = {
 // Set it in your shell before running the sender, e.g. `export TMPSENSOR_API_KEY=...`.
 const apiKey = process.env.TMPSENSOR_API_KEY;
 
+module.exports.testSend = function testSend(endpoint, serverName) {
+  const baseEndpoint = endpoints[endpoint];
+  const output = {
+    server: serverName,
+    sensorData: {
+      sensor1: 0
+    }
+  };
+  const dateTime = new Date((new Date()).getTime());
+  output.dateTime = dateTime.toLocaleString();
+  output.timeStamp = dateTime.getTime();
+
+  const strOutput = JSON.stringify(output);
+  debug(chalk.cyan(strOutput));
+
+  const url = `${baseEndpoint}/log`;
+  axios.post(url, output, { headers: { 'x-api-key': apiKey } });
+};
+
 module.exports.listenForData = function listenForData(endpoint, serverName) {
   const baseEndpoint = endpoints[endpoint];
   const sp = new SerialPort(portName);
@@ -40,7 +59,6 @@ module.exports.listenForData = function listenForData(endpoint, serverName) {
 
       const url = `${baseEndpoint}/log`;
       axios.post(url, output, { headers: { 'x-api-key': apiKey } });
-      
     } catch (e) {
       debug(chalk.yellow(`Temperature update error: ${e}`));
     }
